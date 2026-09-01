@@ -100,6 +100,9 @@
     font-family: var(--font-mono);
   }
   .viewmeta strong { color: #ffffff; font-weight: 700; }
+  .viewmeta-wrap { text-align: right; }
+  .sync-status { font-size: 11.5px; color: rgba(255,255,255,0.7); margin-top: 4px; }
+  .sync-status.stale { color: #ffd479; }
   .brand-corner {
     position: absolute; top: 0; right: 0; width: 0; height: 0;
     border-style: solid; border-width: 0 52px 52px 0;
@@ -435,6 +438,9 @@
   }
   .note-date { display: block; font-size: 11px; color: var(--ink-muted); font-family: var(--font-mono); margin-bottom: 3px; }
   .note-text { font-size: 13px; color: var(--ink); }
+  .note-msg { font-size: 12px; margin: -4px 0 8px; min-height: 14px; }
+  .note-msg.warn { color: var(--warning); }
+  .note-msg.error { color: var(--critical); }
 
   .checkbox-field {
     display: flex; align-items: center; gap: 8px;
@@ -461,7 +467,10 @@
       <h1>Torre de Control</h1>
       <p>Backlog de iniciativas de eficiencia operativa: estado, priorización, KPIs de horas hombre y ejecución por área.</p>
     </div>
-    <div class="viewmeta" id="viewmeta"></div>
+    <div class="viewmeta-wrap">
+      <div class="viewmeta" id="viewmeta"></div>
+      <div class="sync-status" id="syncStatus"></div>
+    </div>
     <span class="brand-corner" aria-hidden="true"></span>
   </header>
 
@@ -487,6 +496,7 @@
       <option value="pausada">Pausada</option>
     </select>
     <div class="spacer"></div>
+    <button class="btn" id="refreshData" type="button">🔄 Actualizar</button>
     <input type="file" id="importFile" accept=".xlsx,.xls" hidden>
     <button class="btn" id="importExcel" type="button">Importar Excel</button>
     <button class="btn" id="exportExcel" type="button">Exportar Excel</button>
@@ -545,6 +555,7 @@
     <button type="button" class="close-x" id="closeWebhook" aria-label="Cerrar">✕</button>
   </div>
   <div class="dialog-body">
+    <div class="note-box info">Quien configure esto aquí se vuelve <strong>editor/publicador</strong>: cada cambio que haga (con "enviar automáticamente" activado) actualiza <code>data.json</code> en el repositorio, y todas las demás personas que abran el tablero lo ven reflejado solas — sin necesitar token ni configurar nada.</div>
     <div class="note-box warn">El token queda guardado solo en este navegador (no se sube al repositorio), pero cualquiera que use este equipo con esta página abierta podría verlo. Usa un token de acceso fino (fine-grained) limitado únicamente a este repositorio y con expiración corta, y no lo configures si esta página va a ser pública.</div>
     <div class="field-row">
       <div class="field">
@@ -753,9 +764,11 @@
     } catch (e) {}
     return { data: seedData(), isSample: true };
   }
+  var lastLocalEditAt = null;
   function persist(data) {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) {}
-    if (webhookCfg.auto) sendWebhook(false);
+    lastLocalEditAt = new Date();
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) { console.error("No se pudo guardar en localStorage:", e); }
+    try { if (webhookCfg.auto) sendWebhook(false); } catch (e) { console.error("Error al disparar el webhook:", e); }
   }
   var WEBHOOK_KEY = STORE_KEY + ":webhook";
   function loadWebhookConfig() {
@@ -808,8 +821,9 @@
     try { localStorage.setItem(STORE_KEY + ":banner-dismissed", "1"); } catch (e) {}
   }
 
-  var state = load();
-  var items = state.data;
+  var items = [];
+  var isSample = false;
+  var lastSyncAt = null;
   var sortKey = null, sortDir = 1;
   var deleteConfirmId = null, deleteConfirmTimer = null;
   var editingId = null;
@@ -1132,6 +1146,7 @@
         '<textarea id="dt-note-text" placeholder="¿Qué pasó con esta iniciativa? Ej: se validó con TI, quedó pendiente de aprobación…"></textarea>' +
         '<button type="button" class="btn primary" id="dt-note-add">Agregar</button>' +
       '</div>' +
+      '<p id="dt-note-msg" class="note-msg" aria-live="polite"></p>' +
       (updates.length
         ? '<ul class="note-list">' + updates.map(function (u) {
             return '<li><span class="note-date">' + fmtFullDate(u.date) + '</span><span class="note-text">' + esc(u.text) + '</span></li>';
@@ -1149,23 +1164,38 @@
     catch (e) { return ""; }
   }
 
-  function addNote(itemId, text) {
-    text = text.trim();
-    if (!text) return;
-    items = items.map(function (i) {
-      if (i.id !== itemId) return i;
-      var updates = (i.updates || []).concat([{ id: uid(), date: new Date().toISOString(), text: text }]);
-      return Object.assign({}, i, { updates: updates });
-    });
-    persist(items);
-    renderTable();
-    openDetail(items.find(function (i) { return i.id === itemId; }));
+  function addNote(itemId, rawText) {
+    var msgEl = document.getElementById("dt-note-msg");
+    var text = (rawText || "").trim();
+    if (!text) {
+      if (msgEl) { msgEl.textContent = "Escribe algo antes de darle a Agregar."; msgEl.className = "note-msg warn"; }
+      return;
+    }
+    try {
+      items = items.map(function (i) {
+        if (i.id !== itemId) return i;
+        var updates = (i.updates || []).concat([{ id: uid(), date: new Date().toISOString(), text: text }]);
+        return Object.assign({}, i, { updates: updates });
+      });
+      persist(items);
+      renderTable();
+      openDetail(items.find(function (i) { return i.id === itemId; }));
+    } catch (err) {
+      console.error("No se pudo agregar la nota:", err);
+      if (msgEl) { msgEl.textContent = "No se pudo guardar la nota. Abre la consola del navegador (F12) para ver el detalle del error."; msgEl.className = "note-msg error"; }
+    }
   }
 
   els.detailDialog.addEventListener("click", function (e) {
     if (e.target && e.target.id === "dt-note-add") {
       var textarea = document.getElementById("dt-note-text");
       if (currentDetailId && textarea) addNote(currentDetailId, textarea.value);
+    }
+  });
+  els.detailDialog.addEventListener("keydown", function (e) {
+    if (e.target && e.target.id === "dt-note-text" && (e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      if (currentDetailId) addNote(currentDetailId, e.target.value);
     }
   });
 
@@ -1419,12 +1449,67 @@
     sendWebhook(true);
   });
 
-  if (state.isSample && !bannerDismissed()) { els.banner.hidden = false; } else { els.banner.hidden = true; }
+  function updateBannerVisibility() {
+    if (isSample && !bannerDismissed()) { els.banner.hidden = false; } else { els.banner.hidden = true; }
+  }
   document.getElementById("dismissBanner").addEventListener("click", function () {
     els.banner.hidden = true;
     dismissBannerFlag();
   });
 
-  renderAll();
+  // ---- Shared data: fetch data.json (published by the webhook + GitHub Action) ----
+  function renderSyncStatus(kind, msg) {
+    var el = document.getElementById("syncStatus");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "sync-status" + (kind === "stale" ? " stale" : "");
+  }
+
+  function fetchRemoteData() {
+    return fetch("./data.json", { cache: "no-store" })
+      .then(function (res) { if (!res.ok) throw new Error("sin data.json publicado (" + res.status + ")"); return res.json(); })
+      .then(function (remote) {
+        var remoteItems = Array.isArray(remote) ? remote : remote.items;
+        var publishedAt = Array.isArray(remote) ? null : remote.publishedAt;
+        if (!Array.isArray(remoteItems)) throw new Error("data.json con formato inesperado");
+        lastSyncAt = new Date();
+        if (lastLocalEditAt && publishedAt && new Date(publishedAt) < lastLocalEditAt) {
+          renderSyncStatus("stale", "Tienes un cambio reciente sin publicar todavía — esperando a que se refleje (puede tardar ~1 min).");
+          return true;
+        }
+        items = remoteItems;
+        isSample = false;
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(items)); } catch (e) {}
+        renderSyncStatus("live", "Datos compartidos · sincronizado " + lastSyncAt.toLocaleTimeString("es"));
+        return true;
+      })
+      .catch(function (err) {
+        var local = load();
+        items = local.data;
+        isSample = local.isSample;
+        renderSyncStatus("stale", "Sin conexión a datos compartidos — mostrando la última copia guardada en este navegador.");
+        console.warn("No se pudo cargar data.json:", err.message);
+        return false;
+      });
+  }
+
+  function refreshFromServer() {
+    var anyDialogOpen = els.dialog.open || els.detailDialog.open || document.getElementById("webhookDialog").open;
+    if (anyDialogOpen) return;
+    fetchRemoteData().then(function () {
+      updateBannerVisibility();
+      renderAll();
+    });
+  }
+
+  document.getElementById("refreshData").addEventListener("click", function () {
+    fetchRemoteData().then(function () { updateBannerVisibility(); renderAll(); });
+  });
+  setInterval(refreshFromServer, 60000);
+
+  fetchRemoteData().then(function () {
+    updateBannerVisibility();
+    renderAll();
+  });
 })();
 </script>

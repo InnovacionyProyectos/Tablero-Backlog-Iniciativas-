@@ -1,10 +1,22 @@
 import json
+from datetime import datetime, timezone
+
 import pandas as pd
 
 with open("payload.json", encoding="utf-8") as f:
     data = json.load(f)
 
 items = data.get("iniciativas", [])
+
+# Publish the raw data for the live dashboard to fetch on load (shared read path).
+with open("data.json", "w", encoding="utf-8") as f:
+    json.dump(
+        {"items": items, "publishedAt": datetime.now(timezone.utc).isoformat()},
+        f,
+        ensure_ascii=False,
+        indent=2,
+    )
+
 ini_rows, upd_rows = [], []
 
 for i in items:
