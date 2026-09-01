@@ -1,0 +1,26 @@
+name: Actualizar Excel de iniciativas
+on:
+  repository_dispatch:
+    types: [torre-control-update]
+
+permissions:
+  contents: write
+
+jobs:
+  build-excel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guardar payload recibido
+        run: echo '${{ toJson(github.event.client_payload) }}' > payload.json
+      - name: Generar iniciativas.xlsx
+        run: |
+          pip install pandas openpyxl
+          python scripts/build_excel.py
+      - name: Commit y push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add iniciativas.xlsx
+          git diff --staged --quiet || git commit -m "Actualiza iniciativas.xlsx desde Torre de Control"
+          git push
