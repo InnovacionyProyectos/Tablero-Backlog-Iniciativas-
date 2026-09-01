@@ -1,0 +1,1430 @@
+<title>Torre de Control</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f2f2f0;
+    --border: #d8d8d8;
+    --ink: #000000;
+    --ink-muted: #63666c;
+    --accent: #0e4bf5;
+    --accent-ink: #ffffff;
+    --accent-soft: #e2e9fd;
+    --accent2: #bef86f;
+    --accent2-soft: #eefadb;
+    --accent2-ink: #0a0a0a;
+    --success: #2f7d4a;
+    --success-soft: #dcefdf;
+    --warning: #9c6b1f;
+    --warning-soft: #f4e6cd;
+    --critical: #b5423a;
+    --critical-soft: #f6dedb;
+    --info: #0e4bf5;
+    --info-soft: #e2e9fd;
+    --neutral: #5c5f57;
+    --neutral-soft: #e6e6e4;
+    --shadow: 0 1px 2px rgba(10,10,10,0.08), 0 10px 26px -14px rgba(10,10,10,0.22);
+    --radius-s: 6px;
+    --radius-m: 10px;
+    --font-display: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'DM Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Alta commits to a single branded look (white ground, Electric Blue + Lime Pop) —
+     deliberately not adapting to the viewer's system dark mode. */
+
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 28px 20px 60px;
+  }
+
+  .wrap { max-width: 1240px; margin: 0 auto; }
+
+  header.page {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    background: #0e4bf5;
+    padding: 28px clamp(20px, 4vw, 36px) 24px;
+    border-radius: var(--radius-m);
+    margin-bottom: 22px;
+    overflow: hidden;
+  }
+  .logo-lockup {
+    display: flex; align-items: center; gap: 8px;
+    margin: 0 0 14px;
+  }
+  .logo-mark { width: 26px; height: 26px; flex-shrink: 0; }
+  .logo-word {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 22px;
+    color: #ffffff;
+    line-height: 1;
+  }
+  .titleblock h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(30px, 4vw, 40px);
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+    text-wrap: balance;
+    color: #ffffff;
+  }
+  .titleblock p {
+    margin: 0;
+    color: rgba(255,255,255,0.82);
+    font-size: 14px;
+    max-width: 60ch;
+  }
+  .viewmeta {
+    text-align: right;
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.78);
+    font-family: var(--font-mono);
+  }
+  .viewmeta strong { color: #ffffff; font-weight: 700; }
+  .brand-corner {
+    position: absolute; top: 0; right: 0; width: 0; height: 0;
+    border-style: solid; border-width: 0 52px 52px 0;
+    border-color: transparent #bef86f transparent transparent;
+    z-index: 1;
+  }
+
+  .banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--info-soft);
+    color: var(--info);
+    border: 1px solid var(--info);
+    border-radius: var(--radius-s);
+    padding: 10px 14px;
+    font-size: 13.5px;
+    margin-bottom: 20px;
+  }
+  .banner button {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid currentColor;
+    color: inherit;
+    border-radius: var(--radius-s);
+    padding: 5px 10px;
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .banner button:hover { background: rgba(0,0,0,0.06); }
+  .banner[hidden] { display: none; }
+
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .kpi .label {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-muted);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .kpi .value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .kpi .value small { font-size: 13px; font-weight: 500; color: var(--ink-muted); margin-left: 4px; }
+  .kpi .sub {
+    margin-top: 8px;
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    display: flex;
+    gap: 14px;
+  }
+  .kpi .sub span strong { color: var(--ink); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .kpi.accent { border-color: var(--accent2); background: var(--accent2); box-shadow: 0 1px 2px rgba(10,10,10,0.08), 0 12px 26px -14px rgba(190,248,111,0.55); }
+  .kpi.accent .value { color: #0a1206; }
+  .kpi.accent .label { color: rgba(10,18,6,0.6); }
+  .kpi.accent .sub { color: rgba(10,18,6,0.65); }
+  .kpi.accent .sub span strong { color: #0a1206; }
+  .kpi.muted-card .value { color: var(--ink-muted); }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .toolbar input[type="search"],
+  .toolbar select {
+    font: inherit;
+    font-size: 13.5px;
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    padding: 7px 10px;
+  }
+  .toolbar input[type="search"] { min-width: 200px; flex: 1 1 200px; }
+  .toolbar .spacer { flex: 1 1 auto; }
+  .btn {
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 700;
+    border-radius: var(--radius-s);
+    padding: 8px 14px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn.primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn:focus-visible, input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 1040px; }
+  thead th {
+    position: sticky; top: 0;
+    background: var(--surface-2);
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-muted);
+    font-weight: 700;
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--accent);
+    white-space: nowrap;
+  }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { color: var(--accent); }
+  thead th .arrow { font-size: 10px; margin-left: 3px; opacity: 0.7; color: var(--accent); }
+  tbody td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    font-size: 13.5px;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface-2); }
+  .name-link {
+    background: none; border: none; padding: 0; text-align: left;
+    font: inherit; font-weight: 700; color: var(--ink); cursor: pointer;
+    text-decoration: underline; text-decoration-color: var(--border);
+    text-underline-offset: 3px;
+  }
+  .name-link:hover { color: var(--accent); text-decoration-color: var(--accent); }
+  .name-cell .updated { font-size: 11px; color: var(--ink-muted); font-family: var(--font-mono); margin-top: 2px; display: block; }
+  .link-btn {
+    background: none; border: none; padding: 0; text-align: left;
+    font: inherit; font-size: 12.5px; font-weight: 700; color: var(--accent); cursor: pointer;
+  }
+  .link-btn.muted { color: var(--ink-muted); font-weight: 500; }
+  .link-btn:hover { text-decoration: underline; }
+  .link-btn .updated { font-size: 11px; color: var(--ink-muted); font-family: var(--font-mono); font-weight: 500; margin-top: 2px; display: block; }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .muted { color: var(--ink-muted); }
+
+  .pill {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .pill.neutral { background: var(--neutral-soft); color: var(--neutral); }
+  .pill.info { background: var(--info-soft); color: var(--info); }
+  .pill.success { background: var(--success-soft); color: var(--success); }
+  .pill.warning { background: var(--warning-soft); color: var(--warning); }
+  .pill.critical { background: var(--critical-soft); color: var(--critical); }
+  .pill.outline { background: transparent; border: 1px dashed currentColor; }
+  .pill.outline-neutral { background: var(--surface-2); color: var(--ink-muted); border: 1px solid var(--border); font-weight: 500; }
+
+  .dot-row { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.success { background: var(--success); }
+  .dot.neutral { background: var(--neutral); }
+  .dot.warning { background: var(--warning); }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px; }
+  .tag {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: var(--radius-s);
+    white-space: nowrap;
+  }
+
+  .row-actions { display: flex; gap: 6px; white-space: nowrap; }
+  .icon-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    border-radius: var(--radius-s);
+    width: 28px; height: 28px;
+    cursor: pointer;
+    font-size: 13px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+  .icon-btn.danger:hover { background: var(--critical-soft); color: var(--critical); border-color: var(--critical); }
+  .icon-btn.confirming { background: var(--critical-soft); color: var(--critical); border-color: var(--critical); font-size: 11px; width: auto; padding: 0 8px; }
+
+  .empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--ink-muted);
+    font-size: 14px;
+  }
+
+  footer.note {
+    margin-top: 18px;
+    font-size: 12px;
+    color: var(--ink-muted);
+    max-width: 80ch;
+  }
+
+  dialog {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0;
+    width: min(560px, 92vw);
+    box-shadow: var(--shadow);
+  }
+  dialog.wide { width: min(720px, 94vw); }
+  dialog::backdrop { background: rgba(10,12,9,0.45); }
+  .dialog-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  }
+  .dialog-head h2 {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-size: 20px;
+    margin: 0 0 6px;
+  }
+  .dt-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dialog-body { padding: 18px 20px; display: grid; gap: 14px; max-height: 62vh; overflow-y: auto; }
+  .field { display: grid; gap: 5px; }
+  .field label { font-size: 12px; font-weight: 700; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .field input, .field select, .field textarea {
+    font: inherit; font-size: 13.5px;
+    background: var(--bg); color: var(--ink);
+    border: 1px solid var(--border); border-radius: var(--radius-s);
+    padding: 8px 10px;
+  }
+  .field textarea { resize: vertical; min-height: 44px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field-row.three { grid-template-columns: 1fr 1fr 1fr; }
+  .field .hint { font-size: 11.5px; color: var(--ink-muted); }
+  .fieldset {
+    border: 1px solid var(--border); border-radius: var(--radius-s);
+    padding: 12px 12px 4px; margin: 0;
+  }
+  .fieldset legend {
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--ink-muted); padding: 0 6px;
+  }
+  .fieldset .field-row { margin-bottom: 12px; }
+  .dialog-foot {
+    padding: 14px 20px; border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 8px;
+  }
+  .close-x {
+    background: transparent; border: none; color: var(--ink-muted);
+    font-size: 18px; cursor: pointer; line-height: 1; flex-shrink: 0;
+  }
+  .close-x:hover { color: var(--ink); }
+
+  .calc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .calc-table th, .calc-table td {
+    padding: 7px 10px; border-bottom: 1px solid var(--border); text-align: right;
+  }
+  .calc-table th:first-child, .calc-table td:first-child { text-align: left; color: var(--ink-muted); font-weight: 500; }
+  .calc-table thead th { text-align: right; color: var(--ink-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+  .calc-table thead th:first-child { text-align: left; }
+  .calc-table td, .calc-table th { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .calc-table th:first-child, .calc-table td:first-child { font-family: var(--font-body); }
+  .calc-table .impact { color: var(--accent); font-weight: 700; }
+
+  .formula-box {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s);
+    padding: 12px 14px; display: grid; gap: 6px;
+    font-family: var(--font-mono); font-size: 12.5px; color: var(--ink);
+    overflow-x: auto;
+  }
+  .formula-box .result { color: var(--accent); font-weight: 700; }
+
+  .note-box {
+    border-radius: var(--radius-s); padding: 10px 12px; font-size: 12.5px; border: 1px solid;
+  }
+  .note-box.warn { background: var(--warning-soft); color: var(--warning); border-color: var(--warning); }
+  .note-box.info { background: var(--info-soft); color: var(--info); border-color: var(--info); }
+
+  .section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;
+    color: var(--ink-muted); margin-bottom: 6px;
+  }
+
+  .note-add { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 10px; }
+  .note-add textarea {
+    flex: 1; min-height: 40px; resize: vertical;
+    font: inherit; font-size: 13px;
+    background: var(--bg); color: var(--ink);
+    border: 1px solid var(--border); border-radius: var(--radius-s);
+    padding: 8px 10px;
+  }
+  .note-add .btn { flex-shrink: 0; }
+  .note-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 220px; overflow-y: auto; }
+  .note-list li {
+    border: 1px solid var(--border); border-radius: var(--radius-s);
+    padding: 8px 10px; background: var(--bg);
+  }
+  .note-date { display: block; font-size: 11px; color: var(--ink-muted); font-family: var(--font-mono); margin-bottom: 3px; }
+  .note-text { font-size: 13px; color: var(--ink); }
+
+  .checkbox-field {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--ink); font-weight: 500; cursor: pointer;
+  }
+  .checkbox-field input { width: auto; }
+  .webhook-status { font-size: 12.5px; margin: 4px 0 0; min-height: 16px; }
+  .webhook-status.success { color: var(--success); }
+  .webhook-status.error { color: var(--critical); }
+</style>
+
+<div class="wrap">
+  <header class="page">
+    <div class="titleblock">
+      <div class="logo-lockup">
+        <svg viewBox="0 0 120 120" class="logo-mark" aria-hidden="true">
+          <path d="M80 86 A36 36 0 1 1 78 26" fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round"/>
+          <g transform="translate(74,46) rotate(45)">
+            <path d="M-13,-42 L13,-42 L13,16 L28,16 L0,50 L-28,16 L-13,16 Z" fill="#ffffff"/>
+          </g>
+        </svg>
+        <span class="logo-word">alta</span>
+      </div>
+      <h1>Torre de Control</h1>
+      <p>Backlog de iniciativas de eficiencia operativa: estado, priorización, KPIs de horas hombre y ejecución por área.</p>
+    </div>
+    <div class="viewmeta" id="viewmeta"></div>
+    <span class="brand-corner" aria-hidden="true"></span>
+  </header>
+
+  <div class="banner" id="sampleBanner">
+    <span>Estas iniciativas se cargaron desde tu archivo. <strong>Tiempo, personas y frecuencia no venían en el archivo</strong> — quedaron vacíos; Estado y Prioridad quedaron en un valor por defecto (Backlog / Media). Complétalos iniciativa por iniciativa para ver el cálculo de HH.</span>
+    <button id="dismissBanner" type="button">Entendido</button>
+  </div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <div class="toolbar">
+    <input type="search" id="search" placeholder="Buscar iniciativa o área…" aria-label="Buscar">
+    <select id="filterEstado" aria-label="Filtrar por estado"></select>
+    <select id="filterCategoria" aria-label="Filtrar por categoría"></select>
+    <select id="filterPrioridad" aria-label="Filtrar por prioridad">
+      <option value="">Toda prioridad</option>
+      <option>Alta</option><option>Media</option><option>Baja</option>
+    </select>
+    <select id="filterEjecucion" aria-label="Filtrar por ejecución">
+      <option value="">Toda ejecución</option>
+      <option value="si">En ejecución</option>
+      <option value="no">Sin ejecutar</option>
+      <option value="pausada">Pausada</option>
+    </select>
+    <div class="spacer"></div>
+    <input type="file" id="importFile" accept=".xlsx,.xls" hidden>
+    <button class="btn" id="importExcel" type="button">Importar Excel</button>
+    <button class="btn" id="exportExcel" type="button">Exportar Excel</button>
+    <button class="btn" id="openWebhook" type="button">Webhook</button>
+    <button class="btn" id="resetSample" type="button">Restablecer backlog inicial</button>
+    <button class="btn" id="clearAll" type="button">Vaciar tablero</button>
+    <button class="btn primary" id="newInitiative" type="button">+ Nueva iniciativa</button>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th class="sortable" data-sort="name">Iniciativa</th>
+          <th class="sortable" data-sort="area">Área</th>
+          <th class="sortable" data-sort="category">Categoría</th>
+          <th class="sortable" data-sort="status">Estado</th>
+          <th>Entregado</th>
+          <th class="sortable" data-sort="priority">Prioridad</th>
+          <th class="sortable num" data-sort="pctTime">% Reducción tiempo</th>
+          <th class="sortable num" data-sort="hhSavedMonth">HH ahorradas / mes</th>
+          <th class="sortable" data-sort="executing">Ejecución</th>
+          <th>Seguimiento</th>
+          <th>Métricas</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="empty-state" id="emptyState" hidden>No hay iniciativas que coincidan con el filtro actual.</div>
+
+  <footer class="note">
+    Mientras trabajas, los datos se guardan automáticamente en este navegador (almacenamiento local); no se comparten entre dispositivos ni personas. Usa <strong>Exportar Excel</strong> para guardar un .xlsx con todo el backlog y el historial de seguimiento en tu equipo (útil como respaldo o para subirlo junto al tablero), y <strong>Importar Excel</strong> para cargar un archivo exportado previamente. Haz clic en el <strong>nombre de una iniciativa</strong> para ver el detalle antes/después y el cálculo aplicado. "Entregado" se deriva del estado (Entregada). Las iniciativas marcadas como <em>Trasladado</em> o <em>Discontinuado</em> muestran su cálculo pero no se suman en los KPI de ahorro, para no confundir redistribución de trabajo con ahorro real.
+  </footer>
+</div>
+
+<dialog id="detailDialog" class="wide">
+  <div class="dialog-head">
+    <div>
+      <h2 id="dt-name"></h2>
+      <div class="dt-badges" id="dt-badges"></div>
+    </div>
+    <button type="button" class="close-x" id="closeDetail" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="dialog-body" id="dt-body"></div>
+  <div class="dialog-foot">
+    <button class="btn" id="detailEdit" type="button">Editar iniciativa</button>
+    <button class="btn primary" id="detailClose" type="button">Cerrar</button>
+  </div>
+</dialog>
+
+<dialog id="webhookDialog">
+  <div class="dialog-head">
+    <h2>Webhook a GitHub Actions</h2>
+    <button type="button" class="close-x" id="closeWebhook" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="dialog-body">
+    <div class="note-box warn">El token queda guardado solo en este navegador (no se sube al repositorio), pero cualquiera que use este equipo con esta página abierta podría verlo. Usa un token de acceso fino (fine-grained) limitado únicamente a este repositorio y con expiración corta, y no lo configures si esta página va a ser pública.</div>
+    <div class="field-row">
+      <div class="field">
+        <label for="wh-owner">Propietario (owner)</label>
+        <input id="wh-owner" placeholder="tu-usuario-u-organización">
+      </div>
+      <div class="field">
+        <label for="wh-repo">Repositorio</label>
+        <input id="wh-repo" placeholder="torre-de-control">
+      </div>
+    </div>
+    <div class="field">
+      <label for="wh-event">Tipo de evento (event_type)</label>
+      <input id="wh-event" placeholder="torre-control-update">
+      <span class="hint">Debe coincidir con el "types" del repository_dispatch en tu workflow de GitHub Actions.</span>
+    </div>
+    <div class="field">
+      <label for="wh-token">Token de GitHub</label>
+      <input id="wh-token" type="password" placeholder="ghp_… o github_pat_…">
+    </div>
+    <label class="checkbox-field">
+      <input id="wh-auto" type="checkbox">
+      Enviar automáticamente cada vez que se guarde un cambio en el tablero
+    </label>
+    <p id="webhookStatus" class="webhook-status"></p>
+  </div>
+  <div class="dialog-foot">
+    <button class="btn" id="wh-send-now" type="button">Enviar ahora</button>
+    <button class="btn primary" id="wh-save" type="button">Guardar configuración</button>
+  </div>
+</dialog>
+
+<dialog id="dialog">
+  <form method="dialog" id="form">
+    <div class="dialog-head">
+      <h2 id="dialogTitle">Nueva iniciativa</h2>
+      <button type="button" class="close-x" id="closeDialog" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="field">
+        <label for="f-name">Nombre de la iniciativa</label>
+        <input id="f-name" required maxlength="120">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="f-area">Área responsable</label>
+          <input id="f-area" maxlength="80">
+        </div>
+        <div class="field">
+          <label for="f-status">Estado</label>
+          <select id="f-status"></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="f-category">Categoría</label>
+          <select id="f-category"></select>
+        </div>
+        <div class="field">
+          <label for="f-priority">Priorización</label>
+          <select id="f-priority">
+            <option>Alta</option><option>Media</option><option>Baja</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="f-executing">¿Área ejecutando?</label>
+          <select id="f-executing">
+            <option value="si">Sí</option>
+            <option value="no">No</option>
+            <option value="pausada">Pausada</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-source">Fuente del dato</label>
+          <select id="f-source">
+            <option>Medido</option>
+            <option>Estimado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-process">Descripción breve del proceso anterior</label>
+        <textarea id="f-process" placeholder="Cómo se hacía antes, opcional pero recomendado para el detalle"></textarea>
+      </div>
+
+      <fieldset class="fieldset">
+        <legend>Situación ANTES</legend>
+        <div class="field-row three">
+          <div class="field">
+            <label for="f-timeBefore">Tiempo por evento (h)</label>
+            <input id="f-timeBefore" type="number" min="0" step="0.25">
+          </div>
+          <div class="field">
+            <label for="f-peopleBefore">Personas</label>
+            <input id="f-peopleBefore" type="number" min="0" step="1">
+          </div>
+          <div class="field">
+            <label for="f-freqBefore">Frecuencia (veces/mes)</label>
+            <input id="f-freqBefore" type="number" min="0" step="0.5">
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="fieldset">
+        <legend>Situación DESPUÉS</legend>
+        <div class="field-row three">
+          <div class="field">
+            <label for="f-timeAfter">Tiempo por evento (h)</label>
+            <input id="f-timeAfter" type="number" min="0" step="0.25">
+          </div>
+          <div class="field">
+            <label for="f-peopleAfter">Personas</label>
+            <input id="f-peopleAfter" type="number" min="0" step="1">
+          </div>
+          <div class="field">
+            <label for="f-freqAfter">Frecuencia (veces/mes)</label>
+            <input id="f-freqAfter" type="number" min="0" step="0.5">
+          </div>
+        </div>
+        <span class="hint">Conversión útil: diario (hábil) ≈ ×21.7/mes · semanal ≈ ×4.33/mes.</span>
+      </fieldset>
+
+      <div class="field">
+        <label for="f-savingType">Tipo de cambio</label>
+        <select id="f-savingType">
+          <option>Sin definir</option>
+          <option>Eliminado</option>
+          <option>Reducido</option>
+          <option>Automatizado</option>
+          <option>Trasladado</option>
+          <option>Discontinuado</option>
+        </select>
+        <span class="hint">Trasladado y Discontinuado no se contabilizan como ahorro neto en los KPI (ver nota al pie del tablero).</span>
+      </div>
+
+      <div class="field">
+        <label for="f-metrics">Métricas que tendrá la iniciativa</label>
+        <input id="f-metrics" placeholder="Separadas por coma: HH ahorradas/mes, % automatización, tiempo de ciclo">
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button type="button" class="btn" id="cancelForm">Cancelar</button>
+      <button type="submit" class="btn primary" id="saveForm">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  var STATUSES = ["Backlog", "Priorizada", "En diseño", "En desarrollo", "En validación", "Entregada", "Pausada", "Cancelada"];
+  var CATEGORIES = ["Comunicación", "Automatización", "Bases de Datos", "Capacitación/Proceso", "Definición", "Métricas", "Agentes", "Proceso", "Otro"];
+  var COUNTING_TYPES = ["Eliminado", "Reducido", "Automatizado"];
+  var STORE_KEY = "torre-control-iniciativas-v2";
+
+  function uid() { return Math.random().toString(36).slice(2, 10); }
+
+  function seedData() {
+    var now = new Date().toISOString();
+    function mk(name, area, category, notes) {
+      return {
+        id: uid(), name: name, area: area, category: category,
+        status: "Backlog", priority: "Media", executing: "no", dataSource: "Estimado",
+        processBefore: notes,
+        timeBeforeH: null, peopleBefore: null, freqBeforeMonth: null,
+        timeAfterH: null, peopleAfter: null, freqAfterMonth: null,
+        savingType: "Sin definir", metrics: [], updatedAt: now, updates: []
+      };
+    }
+    return [
+      mk("Envío de extractos", "SAC", "Comunicación", "El envío de extractos hoy no se está enviando, ya que el proceso tiene que ser uno a uno además de compararlo con la base que tiene Coltefinanciera. Envío mensual de créditos para renovar pólizas, además la notificación al cliente final."),
+      mk("Notificación ventas de cartera", "SAC", "Comunicación", "Hacer el envío de la venta de cartera al cliente por medio de SMS u otro canal. No tenemos el número de la obligación, además que no está referenciado para poder pagar; no pueden pagar si van con nuestro número, ya que ese número está atado a nuestro crédito."),
+      mk("Canal especializado para solicitud levantamiento de prenda", "SAC", "Automatización", "Mapear el proceso desde que el cliente consigna y la comunicación al cliente de qué documentos e información tiene que enviar a los correos, ya que se asume que con el pago no tiene que realizar el envío de información."),
+      mk("Reporte centrales de riesgo", "Operaciones", "Comunicación", "Reporte centrales de riesgo."),
+      mk("Bases de datos", "Cartera", "Bases de Datos", "Bases de datos funcionales. (Entrar a revisar con los equipos la información que hay en las bases de datos, revisar tablas y campos con la entrega de diccionario que realizó Oscar)."),
+      mk("Journey cliente/producto — bienvenida", "Cartera", "Comunicación", "Mensaje de bienvenida (envíos masivos) a los clientes que llegan nuevos en los productos. Se debe estructurar el mensaje de bienvenida con el fin de que se notifique información de pago, fecha de pago y referencia."),
+      mk("Canal de WhatsApp en cartera", "Cartera", "Comunicación", "Canal diferente a cartera para envío en WhatsApp (envío y recepción) — hay que activarlo. Se requiere estrategia de comunicaciones de cara al cliente para que no siga enviando soportes de pago a los WhatsApp de celulares fijos asignados a cartera."),
+      mk("Filtro de WhatsApp en llamadas", "Cartera", "Comunicación", "Filtro / cierre del WhatsApp cuando entra una llamada en Cartera."),
+      mk("Herramienta de ventas de cartera", "Cartera", "Capacitación/Proceso", "Utilizar la herramienta de Ventas de cartera tanto en Operaciones como en Cartera, para optimizar el tiempo de gestión."),
+      mk("Onboarding motos — Cartera", "Cartera", "Capacitación/Proceso", "Onboarding – motos. Definiciones claras del producto con los documentos que el cliente firma, además de la oferta comercial."),
+      mk("Onboarding motos — SAC", "SAC", "Capacitación/Proceso", "Onboarding – motos. Definiciones claras del producto con los documentos que el cliente firma, además de la oferta comercial."),
+      mk("Liquidación de pago total", "SAC", "Definición", "Automatización del proceso de liquidación no funciona ya que no trae la información; con las casas de cobranza no hay alineación. (Líder de iniciativa: Carlos Gil)"),
+      mk("HQRUNT", "Operaciones", "Capacitación/Proceso", "Automatizar la estructura del reporte de contabilidad / soporte de pago."),
+      mk("Canal de WA — gestión en bases de datos", "Cartera", "Comunicación", "Gestión en bases de datos: los acuerdos deben quedar registrados (entender qué se quiere con esto y qué tanto impacta). Se requiere que la información de este proceso, que actualmente está en una BD propia del portal, viaje a las BD de Mango para automatizar un query."),
+      mk("Comunicaciones masivas", "Cartera", "Comunicación", "Envíos masivos de blasters (SMS y correo); esto nos permitirá experimentar con nuevos canales y su respectivo impacto."),
+      mk("Monitoreo con IA", "Cartera", "Automatización", "IA – cómo se puede hacer el monitoreo y análisis."),
+      mk("Agentes para atender solicitudes al cliente", "SAC", "Automatización", "Agente con capacidad de responder necesidades de primer nivel (definir qué es primer nivel y demás); dar respuestas inmediatas a preguntas frecuentes."),
+      mk("Modelo CX Alta", "SAC", "Definición", "Mapear los canales que tenemos, definición de ANS, clasificar niveles de servicio (1er y 2do nivel). Esto ayudará a descentralizar el correo."),
+      mk("Canal de WA — agente de negociación", "Cartera", "Automatización", "Agente con capacidad de responder necesidades de primer nivel (definir), dar respuestas inmediatas a preguntas frecuentes, filtros para lograr la negociación. Meter negociación dentro del agente."),
+      mk("Journey cliente/producto — venta de cartera", "Cartera", "Comunicación", "Mensaje de venta de cartera (envíos masivos). Se requiere notificar al cliente la venta de cartera de manera automática; se debe validar la manera de comunicar, el canal y qué debe llevar el envío."),
+      mk("Respuesta de clientes por WhatsApp", "Cartera", "Métricas", "Mapear respuesta de los clientes en mensajes de WhatsApp – recaudo por canal. (Medición que se hará respecto a las tipificaciones que entran por WhatsApp frente a las tipificaciones realizadas por los asesores)."),
+      mk("Asistente de crédito", "Crédito", "Agentes", "Asistente que ayude a tener criterios / ayuda con el despliegue. Se requiere implementación de una herramienta que analice los extractos según la lógica de crédito."),
+      mk("Gestión documental", "Cartera", "Proceso", "Buscar carpetas por carpetas; los correos se buscan en historiales."),
+      mk("Métricas de medición", "Operaciones", "Métricas", "Qué métricas tenemos y qué queremos mejorar para SAC, ya que contamos con una primera versión de medición, pero necesitamos ser mucho más específicos y medirlos de una mejor manera."),
+      mk("Reglas de bonificaciones", "Operaciones", "Métricas", "Tablero de control para la administración de las bonificaciones; apoyar en la construcción del tablero de control que nos permita administrar los costos de Fee y bonificación cancelada por Didi."),
+      mk("Estrategia de migración a WhatsApp", "Cartera", "Comunicación", "Diseñar una campaña de comunicación que le permita a Cartera dejar de usar los teléfonos físicos y empezar a generar tracción sobre el canal definido.")
+    ];
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) return { data: JSON.parse(raw), isSample: false };
+    } catch (e) {}
+    return { data: seedData(), isSample: true };
+  }
+  function persist(data) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) {}
+    if (webhookCfg.auto) sendWebhook(false);
+  }
+  var WEBHOOK_KEY = STORE_KEY + ":webhook";
+  function loadWebhookConfig() {
+    try {
+      var raw = localStorage.getItem(WEBHOOK_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return { owner: "", repo: "", eventType: "torre-control-update", token: "", auto: false };
+  }
+  function saveWebhookConfig(cfg) {
+    try { localStorage.setItem(WEBHOOK_KEY, JSON.stringify(cfg)); } catch (e) {}
+  }
+  var webhookCfg = loadWebhookConfig();
+
+  function setWebhookStatus(kind, msg) {
+    var el = document.getElementById("webhookStatus");
+    if (!el) return;
+    el.textContent = msg + " (" + new Date().toLocaleTimeString("es") + ")";
+    el.className = "webhook-status " + kind;
+  }
+
+  function sendWebhook(showAlerts) {
+    if (!webhookCfg.owner || !webhookCfg.repo || !webhookCfg.token) {
+      if (showAlerts) alert("Configura propietario, repositorio y token antes de enviar.");
+      return;
+    }
+    var url = "https://api.github.com/repos/" + encodeURIComponent(webhookCfg.owner) + "/" + encodeURIComponent(webhookCfg.repo) + "/dispatches";
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": "Bearer " + webhookCfg.token,
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28"
+      },
+      body: JSON.stringify({
+        event_type: webhookCfg.eventType || "torre-control-update",
+        client_payload: { iniciativas: items, exportedAt: new Date().toISOString() }
+      })
+    }).then(function (res) {
+      setWebhookStatus(res.ok ? "success" : "error", res.ok ? "Enviado correctamente." : ("Error " + res.status + " al enviar."));
+    }).catch(function () {
+      setWebhookStatus("error", "No se pudo conectar (revisa el token, el repositorio o tu conexión).");
+    });
+  }
+  function bannerDismissed() {
+    try { return localStorage.getItem(STORE_KEY + ":banner-dismissed") === "1"; } catch (e) { return false; }
+  }
+  function dismissBannerFlag() {
+    try { localStorage.setItem(STORE_KEY + ":banner-dismissed", "1"); } catch (e) {}
+  }
+
+  var state = load();
+  var items = state.data;
+  var sortKey = null, sortDir = 1;
+  var deleteConfirmId = null, deleteConfirmTimer = null;
+  var editingId = null;
+  var currentDetailId = null;
+
+  var els = {
+    tbody: document.getElementById("tbody"),
+    kpis: document.getElementById("kpis"),
+    viewmeta: document.getElementById("viewmeta"),
+    banner: document.getElementById("sampleBanner"),
+    search: document.getElementById("search"),
+    filterEstado: document.getElementById("filterEstado"),
+    filterCategoria: document.getElementById("filterCategoria"),
+    filterPrioridad: document.getElementById("filterPrioridad"),
+    filterEjecucion: document.getElementById("filterEjecucion"),
+    emptyState: document.getElementById("emptyState"),
+    dialog: document.getElementById("dialog"),
+    form: document.getElementById("form"),
+    dialogTitle: document.getElementById("dialogTitle"),
+    detailDialog: document.getElementById("detailDialog")
+  };
+
+  els.filterEstado.innerHTML = '<option value="">Todo estado</option>' + STATUSES.map(function (s) { return '<option>' + s + '</option>'; }).join("");
+  document.getElementById("f-status").innerHTML = STATUSES.map(function (s) { return '<option>' + s + '</option>'; }).join("");
+  els.filterCategoria.innerHTML = '<option value="">Toda categoría</option>' + CATEGORIES.map(function (s) { return '<option>' + s + '</option>'; }).join("");
+  document.getElementById("f-category").innerHTML = CATEGORIES.map(function (s) { return '<option>' + s + '</option>'; }).join("");
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  function fmtNum(n, decimals) {
+    if (n == null || isNaN(n)) return "—";
+    var d = decimals == null ? 1 : decimals;
+    var f = Math.pow(10, d);
+    var r = Math.round(n * f) / f;
+    return (r % 1 === 0) ? String(r) : r.toFixed(d);
+  }
+
+  function calc(item) {
+    var tb = item.timeBeforeH, ta = item.timeAfterH, pb = item.peopleBefore, pa = item.peopleAfter,
+        fb = item.freqBeforeMonth, fa = item.freqAfterMonth;
+    var hasBefore = [tb, pb, fb].every(function (v) { return typeof v === "number" && !isNaN(v); });
+    var hasAfter = [ta, pa, fa].every(function (v) { return typeof v === "number" && !isNaN(v); });
+    var hhBeforeEvent = hasBefore ? tb * pb : null;
+    var hhAfterEvent = hasAfter ? ta * pa : null;
+    var hhBeforeMonth = hasBefore ? hhBeforeEvent * fb : null;
+    var hhAfterMonth = hasAfter ? hhAfterEvent * fa : null;
+    var hhSavedMonth = (hhBeforeMonth != null && hhAfterMonth != null) ? hhBeforeMonth - hhAfterMonth : null;
+    var hhSavedYear = hhSavedMonth != null ? hhSavedMonth * 12 : null;
+    var pctTime = (hasBefore && hasAfter && tb > 0) ? (tb - ta) / tb * 100 : null;
+    var pctHH = (hhBeforeMonth != null && hhAfterMonth != null && hhBeforeMonth > 0) ? (hhBeforeMonth - hhAfterMonth) / hhBeforeMonth * 100 : null;
+    var countsAsSaving = COUNTING_TYPES.indexOf(item.savingType) !== -1;
+    return {
+      hasBefore: hasBefore, hasAfter: hasAfter,
+      hhBeforeEvent: hhBeforeEvent, hhAfterEvent: hhAfterEvent,
+      hhBeforeMonth: hhBeforeMonth, hhAfterMonth: hhAfterMonth,
+      hhSavedMonth: hhSavedMonth, hhSavedYear: hhSavedYear,
+      pctTime: pctTime, pctHH: pctHH, countsAsSaving: countsAsSaving
+    };
+  }
+
+  function statusPillClass(status) {
+    if (status === "Entregada") return "success";
+    if (status === "Pausada") return "warning";
+    if (status === "Cancelada") return "critical";
+    if (status === "Backlog" || status === "Priorizada") return "neutral";
+    return "info";
+  }
+  function priorityPillClass(p) {
+    if (p === "Alta") return "critical";
+    if (p === "Media") return "warning";
+    return "info";
+  }
+  function savingPillClass(t) {
+    if (t === "Eliminado" || t === "Automatizado") return "success";
+    if (t === "Reducido") return "info";
+    if (t === "Trasladado") return "warning";
+    if (t === "Discontinuado") return "critical";
+    return "neutral";
+  }
+  function executingDot(e) {
+    if (e === "si") return { cls: "success", label: "Sí" };
+    if (e === "pausada") return { cls: "warning", label: "Pausada" };
+    return { cls: "neutral", label: "No" };
+  }
+
+  function fmtDate(iso) {
+    try { return new Date(iso).toLocaleDateString("es", { day: "2-digit", month: "short" }); }
+    catch (e) { return ""; }
+  }
+
+  function computeKPIs() {
+    var total = items.length;
+    var delivered = items.filter(function (i) { return i.status === "Entregada"; });
+    var executingActive = items.filter(function (i) { return i.executing === "si" && i.status !== "Entregada" && i.status !== "Cancelada"; });
+    var hhReal = 0, hhPipeline = 0, hhExcluded = 0;
+    items.forEach(function (i) {
+      var c = calc(i);
+      if (c.hhSavedMonth == null) return;
+      if (!c.countsAsSaving) { hhExcluded += c.hhSavedMonth; return; }
+      if (i.status === "Entregada") hhReal += c.hhSavedMonth;
+      else if (i.status !== "Cancelada") hhPipeline += c.hhSavedMonth;
+    });
+    var pct = total ? Math.round((delivered.length / total) * 100) : 0;
+    return { total: total, delivered: delivered.length, pct: pct, executingActive: executingActive.length, hhReal: hhReal, hhPipeline: hhPipeline, hhExcluded: hhExcluded };
+  }
+
+  function renderKPIs() {
+    var k = computeKPIs();
+    els.kpis.innerHTML =
+      '<div class="kpi"><div class="label">Iniciativas en el backlog</div><div class="value">' + k.total + '</div></div>' +
+      '<div class="kpi"><div class="label">Entregadas</div><div class="value">' + k.delivered + '<small>de ' + k.total + '</small></div>' +
+        '<div class="sub"><span>Avance <strong>' + k.pct + '%</strong></span></div></div>' +
+      '<div class="kpi"><div class="label">En ejecución activa</div><div class="value">' + k.executingActive + '</div></div>' +
+      '<div class="kpi accent"><div class="label">HH ahorradas / mes</div><div class="value">' + fmtNum(k.hhReal, 1) + '<small>real</small></div>' +
+        '<div class="sub"><span>En pipeline <strong>' + fmtNum(k.hhPipeline, 1) + ' HH</strong></span></div></div>' +
+      '<div class="kpi muted-card"><div class="label">HH no contabilizadas</div><div class="value">' + fmtNum(k.hhExcluded, 1) + '</div>' +
+        '<div class="sub"><span>Trasladadas / discontinuadas — excluidas del ahorro</span></div></div>';
+  }
+
+  function applyFilters() {
+    var q = els.search.value.trim().toLowerCase();
+    var fe = els.filterEstado.value, fc = els.filterCategoria.value, fp = els.filterPrioridad.value, fx = els.filterEjecucion.value;
+    var rows = items.filter(function (i) {
+      if (fe && i.status !== fe) return false;
+      if (fc && i.category !== fc) return false;
+      if (fp && i.priority !== fp) return false;
+      if (fx && i.executing !== fx) return false;
+      if (q) {
+        var hay = (i.name + " " + i.area + " " + (i.metrics || []).join(" ")).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    if (sortKey) {
+      rows.sort(function (a, b) {
+        var av, bv;
+        if (sortKey === "pctTime") { av = calc(a).pctTime; bv = calc(b).pctTime; }
+        else if (sortKey === "hhSavedMonth") { av = calc(a).hhSavedMonth; bv = calc(b).hhSavedMonth; }
+        else { av = a[sortKey]; bv = b[sortKey]; }
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (typeof av === "number" && typeof bv === "number") return (av - bv) * sortDir;
+        return String(av).localeCompare(String(bv)) * sortDir;
+      });
+    }
+    return rows;
+  }
+
+  function renderTable() {
+    var rows = applyFilters();
+    els.emptyState.hidden = rows.length !== 0;
+    els.tbody.innerHTML = rows.map(function (i) {
+      var c = calc(i);
+      var sc = statusPillClass(i.status);
+      var pc = priorityPillClass(i.priority);
+      var ex = executingDot(i.executing);
+      var delivered = i.status === "Entregada";
+      var tags = (i.metrics || []).map(function (m) { return '<span class="tag">' + esc(m) + '</span>'; }).join("");
+      var confirming = deleteConfirmId === i.id;
+      var pctCell = c.pctTime != null ? fmtNum(c.pctTime, 1) + "%" : '<span class="muted">—</span>';
+      var hhCell;
+      if (c.hhSavedMonth == null) { hhCell = '<span class="muted">—</span>'; }
+      else if (!c.countsAsSaving) { hhCell = '<span class="muted" title="No se contabiliza en KPI: tipo de cambio = ' + esc(i.savingType) + '">' + fmtNum(c.hhSavedMonth, 1) + ' HH*</span>'; }
+      else { hhCell = fmtNum(c.hhSavedMonth, 1) + ' HH'; }
+      var updates = i.updates || [];
+      var lastUpdate = updates.length ? updates.slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); })[0] : null;
+      var followCell = updates.length
+        ? '<button type="button" class="link-btn" data-detail="' + i.id + '">' + updates.length + (updates.length === 1 ? ' nota' : ' notas') + '<span class="updated">' + fmtDate(lastUpdate.date) + '</span></button>'
+        : '<button type="button" class="link-btn muted" data-detail="' + i.id + '">+ Agregar nota</button>';
+      return '<tr>' +
+        '<td class="name-cell"><button type="button" class="name-link" data-detail="' + i.id + '">' + esc(i.name) + '</button><span class="updated">Actualizado ' + fmtDate(i.updatedAt) + '</span></td>' +
+        '<td>' + esc(i.area || "—") + '</td>' +
+        '<td><span class="pill outline-neutral">' + esc(i.category || "—") + '</span></td>' +
+        '<td><span class="pill ' + sc + '">' + esc(i.status) + '</span></td>' +
+        '<td>' + (delivered ? '<span class="pill success">Sí</span>' : '<span class="pill neutral">No</span>') + '</td>' +
+        '<td><span class="pill ' + pc + '">' + esc(i.priority) + '</span></td>' +
+        '<td class="num">' + pctCell + '</td>' +
+        '<td class="num">' + hhCell + '</td>' +
+        '<td><span class="dot-row"><span class="dot ' + ex.cls + '"></span>' + ex.label + '</span></td>' +
+        '<td>' + followCell + '</td>' +
+        '<td><span class="tags">' + (tags || '<span class="muted">—</span>') + '</span></td>' +
+        '<td><span class="row-actions">' +
+          '<button class="icon-btn" data-edit="' + i.id + '" title="Editar" aria-label="Editar">✎</button>' +
+          (confirming
+            ? '<button class="icon-btn confirming" data-del-confirm="' + i.id + '">Eliminar</button>'
+            : '<button class="icon-btn danger" data-del="' + i.id + '" title="Eliminar" aria-label="Eliminar">🗑</button>') +
+        '</span></td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  function renderViewmeta() {
+    els.viewmeta.innerHTML = 'Vista: <strong>' + new Date().toLocaleDateString("es", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) + '</strong>';
+  }
+
+  function renderAll() {
+    renderKPIs();
+    renderTable();
+    renderViewmeta();
+  }
+
+  document.querySelectorAll("th.sortable").forEach(function (th) {
+    th.addEventListener("click", function () {
+      var key = th.getAttribute("data-sort");
+      if (sortKey === key) { sortDir *= -1; } else { sortKey = key; sortDir = 1; }
+      document.querySelectorAll("th.sortable .arrow").forEach(function (a) { a.remove(); });
+      var arrow = document.createElement("span");
+      arrow.className = "arrow";
+      arrow.textContent = sortDir === 1 ? "▲" : "▼";
+      th.appendChild(arrow);
+      renderTable();
+    });
+  });
+
+  [els.search, els.filterEstado, els.filterCategoria, els.filterPrioridad, els.filterEjecucion].forEach(function (el) {
+    el.addEventListener("input", renderTable);
+    el.addEventListener("change", renderTable);
+  });
+
+  els.tbody.addEventListener("click", function (e) {
+    var target = e.target;
+    var editId = target.getAttribute && target.getAttribute("data-edit");
+    var delId = target.getAttribute && target.getAttribute("data-del");
+    var delConfirmId = target.getAttribute && target.getAttribute("data-del-confirm");
+    var detailId = target.getAttribute && target.getAttribute("data-detail");
+    if (editId) { openDialog(items.find(function (i) { return i.id === editId; })); }
+    if (detailId) { openDetail(items.find(function (i) { return i.id === detailId; })); }
+    if (delId) {
+      deleteConfirmId = delId;
+      clearTimeout(deleteConfirmTimer);
+      deleteConfirmTimer = setTimeout(function () { deleteConfirmId = null; renderTable(); }, 3000);
+      renderTable();
+    }
+    if (delConfirmId) {
+      items = items.filter(function (i) { return i.id !== delConfirmId; });
+      deleteConfirmId = null;
+      persist(items);
+      renderAll();
+    }
+  });
+
+  // ---- Detail (drill-down) dialog ----
+  function missingFieldsList(item, side) {
+    var labels = side === "before"
+      ? [["timeBeforeH", "tiempo antes"], ["peopleBefore", "personas antes"], ["freqBeforeMonth", "frecuencia antes"]]
+      : [["timeAfterH", "tiempo después"], ["peopleAfter", "personas después"], ["freqAfterMonth", "frecuencia después"]];
+    return labels.filter(function (l) { return item[l[0]] == null || item[l[0]] === ""; }).map(function (l) { return l[1]; });
+  }
+
+  function openDetail(item) {
+    if (!item) return;
+    currentDetailId = item.id;
+    var c = calc(item);
+    document.getElementById("dt-name").textContent = item.name;
+    var badges = [
+      '<span class="pill ' + statusPillClass(item.status) + '">' + esc(item.status) + '</span>',
+      '<span class="pill outline-neutral">' + esc(item.category || "Sin categoría") + '</span>',
+      '<span class="pill ' + priorityPillClass(item.priority) + '">Prioridad ' + esc(item.priority) + '</span>',
+      '<span class="pill ' + savingPillClass(item.savingType) + '">' + esc(item.savingType || "Sin definir") + '</span>',
+      '<span class="pill outline">Fuente: ' + esc(item.dataSource || "Estimado") + '</span>'
+    ].join("");
+    document.getElementById("dt-badges").innerHTML = badges;
+
+    var body = "";
+    if (item.processBefore) {
+      body += '<div><div class="section-label">Proceso anterior</div><p style="margin:0;color:var(--ink-muted);font-size:13.5px;">' + esc(item.processBefore) + '</p></div>';
+    }
+
+    var missingBefore = missingFieldsList(item, "before");
+    var missingAfter = missingFieldsList(item, "after");
+    if (missingBefore.length || missingAfter.length) {
+      var msg = [];
+      if (missingBefore.length) msg.push("Antes: falta " + missingBefore.join(", "));
+      if (missingAfter.length) msg.push("Después: falta " + missingAfter.join(", "));
+      body += '<div class="note-box warn">Cálculo incompleto — ' + msg.join(" · ") + '. No se asumen valores; edita la iniciativa para completarlos.</div>';
+    }
+
+    if (item.savingType === "Trasladado" || item.savingType === "Discontinuado") {
+      body += '<div class="note-box warn">' +
+        (item.savingType === "Trasladado"
+          ? 'Este cambio está marcado como <strong>Trasladado</strong>: el tiempo se movió a otra persona, área o momento. El cálculo se muestra abajo, pero no se suma como ahorro neto en los KPI del tablero.'
+          : 'Este cambio está marcado como <strong>Discontinuado</strong>: la actividad se dejó de hacer sin confirmar si era necesaria. Se muestra el cálculo, pero se excluye del ahorro hasta validarlo.') +
+        '</div>';
+    }
+
+    body += '<div>' +
+      '<div class="section-label">Comparación antes vs. después</div>' +
+      '<table class="calc-table"><thead><tr><th>Indicador</th><th>Antes</th><th>Después</th><th>Impacto</th></tr></thead><tbody>' +
+        '<tr><td>Tiempo por evento</td><td>' + (item.timeBeforeH != null ? fmtNum(item.timeBeforeH, 2) + ' h' : '—') + '</td><td>' + (item.timeAfterH != null ? fmtNum(item.timeAfterH, 2) + ' h' : '—') + '</td><td class="impact">' + (c.pctTime != null ? '-' + fmtNum(c.pctTime, 1) + '%' : '—') + '</td></tr>' +
+        '<tr><td>Personas</td><td>' + (item.peopleBefore != null ? fmtNum(item.peopleBefore, 0) : '—') + '</td><td>' + (item.peopleAfter != null ? fmtNum(item.peopleAfter, 0) : '—') + '</td><td class="impact">' + ((item.peopleBefore != null && item.peopleAfter != null) ? (item.peopleBefore - item.peopleAfter) + ' pers.' : '—') + '</td></tr>' +
+        '<tr><td>Frecuencia (veces/mes)</td><td>' + (item.freqBeforeMonth != null ? fmtNum(item.freqBeforeMonth, 1) : '—') + '</td><td>' + (item.freqAfterMonth != null ? fmtNum(item.freqAfterMonth, 1) : '—') + '</td><td class="impact">—</td></tr>' +
+        '<tr><td>HH por evento</td><td>' + fmtNum(c.hhBeforeEvent, 2) + '</td><td>' + fmtNum(c.hhAfterEvent, 2) + '</td><td class="impact">' + ((c.hhBeforeEvent != null && c.hhAfterEvent != null) ? '-' + fmtNum(c.hhBeforeEvent - c.hhAfterEvent, 2) + ' HH' : '—') + '</td></tr>' +
+        '<tr><td>HH mensuales</td><td>' + fmtNum(c.hhBeforeMonth, 1) + '</td><td>' + fmtNum(c.hhAfterMonth, 1) + '</td><td class="impact">' + (c.hhSavedMonth != null ? '-' + fmtNum(c.hhSavedMonth, 1) + ' HH (' + fmtNum(c.pctHH, 1) + '%)' : '—') + '</td></tr>' +
+        '<tr><td>HH anuales</td><td>' + (c.hhBeforeMonth != null ? fmtNum(c.hhBeforeMonth * 12, 1) : '—') + '</td><td>' + (c.hhAfterMonth != null ? fmtNum(c.hhAfterMonth * 12, 1) : '—') + '</td><td class="impact">' + (c.hhSavedYear != null ? '-' + fmtNum(c.hhSavedYear, 1) + ' HH' : '—') + '</td></tr>' +
+      '</tbody></table>' +
+    '</div>';
+
+    if (c.hhBeforeMonth != null && c.hhAfterMonth != null) {
+      body += '<div><div class="section-label">Cálculo aplicado</div><div class="formula-box">' +
+        '<div>HH Antes = ' + fmtNum(item.timeBeforeH, 2) + ' h &times; ' + fmtNum(item.peopleBefore, 0) + ' personas &times; ' + fmtNum(item.freqBeforeMonth, 1) + ' veces/mes = <span class="result">' + fmtNum(c.hhBeforeMonth, 1) + ' HH/mes</span></div>' +
+        '<div>HH Después = ' + fmtNum(item.timeAfterH, 2) + ' h &times; ' + fmtNum(item.peopleAfter, 0) + ' personas &times; ' + fmtNum(item.freqAfterMonth, 1) + ' veces/mes = <span class="result">' + fmtNum(c.hhAfterMonth, 1) + ' HH/mes</span></div>' +
+        '<div>Ahorro HH = ' + fmtNum(c.hhBeforeMonth, 1) + ' &minus; ' + fmtNum(c.hhAfterMonth, 1) + ' = <span class="result">' + fmtNum(c.hhSavedMonth, 1) + ' HH/mes &rarr; ' + fmtNum(c.hhSavedYear, 1) + ' HH/año</span></div>' +
+        '<div>% Reducción de tiempo = (' + fmtNum(item.timeBeforeH, 2) + ' &minus; ' + fmtNum(item.timeAfterH, 2) + ') / ' + fmtNum(item.timeBeforeH, 2) + ' &times; 100 = <span class="result">' + fmtNum(c.pctTime, 1) + '%</span></div>' +
+        '<div>% Reducción de HH = (' + fmtNum(c.hhBeforeMonth, 1) + ' &minus; ' + fmtNum(c.hhAfterMonth, 1) + ') / ' + fmtNum(c.hhBeforeMonth, 1) + ' &times; 100 = <span class="result">' + fmtNum(c.pctHH, 1) + '%</span></div>' +
+      '</div></div>';
+    }
+
+    if (item.metrics && item.metrics.length) {
+      body += '<div><div class="section-label">Métricas de la iniciativa</div><span class="tags">' + item.metrics.map(function (m) { return '<span class="tag">' + esc(m) + '</span>'; }).join("") + '</span></div>';
+    }
+
+    var updates = (item.updates || []).slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+    body += '<div><div class="section-label">Seguimiento / novedades</div>' +
+      '<div class="note-add">' +
+        '<textarea id="dt-note-text" placeholder="¿Qué pasó con esta iniciativa? Ej: se validó con TI, quedó pendiente de aprobación…"></textarea>' +
+        '<button type="button" class="btn primary" id="dt-note-add">Agregar</button>' +
+      '</div>' +
+      (updates.length
+        ? '<ul class="note-list">' + updates.map(function (u) {
+            return '<li><span class="note-date">' + fmtFullDate(u.date) + '</span><span class="note-text">' + esc(u.text) + '</span></li>';
+          }).join("") + '</ul>'
+        : '<p class="muted" style="font-size:12.5px;margin:2px 0 0;">Aún no hay novedades registradas para esta iniciativa.</p>') +
+    '</div>';
+
+    document.getElementById("dt-body").innerHTML = body;
+    document.getElementById("detailEdit").setAttribute("data-id", item.id);
+    els.detailDialog.showModal();
+  }
+
+  function fmtFullDate(iso) {
+    try { return new Date(iso).toLocaleDateString("es", { day: "2-digit", month: "short", year: "numeric" }); }
+    catch (e) { return ""; }
+  }
+
+  function addNote(itemId, text) {
+    text = text.trim();
+    if (!text) return;
+    items = items.map(function (i) {
+      if (i.id !== itemId) return i;
+      var updates = (i.updates || []).concat([{ id: uid(), date: new Date().toISOString(), text: text }]);
+      return Object.assign({}, i, { updates: updates });
+    });
+    persist(items);
+    renderTable();
+    openDetail(items.find(function (i) { return i.id === itemId; }));
+  }
+
+  els.detailDialog.addEventListener("click", function (e) {
+    if (e.target && e.target.id === "dt-note-add") {
+      var textarea = document.getElementById("dt-note-text");
+      if (currentDetailId && textarea) addNote(currentDetailId, textarea.value);
+    }
+  });
+
+  document.getElementById("closeDetail").addEventListener("click", function () { els.detailDialog.close(); });
+  document.getElementById("detailClose").addEventListener("click", function () { els.detailDialog.close(); });
+  document.getElementById("detailEdit").addEventListener("click", function () {
+    var id = this.getAttribute("data-id");
+    els.detailDialog.close();
+    openDialog(items.find(function (i) { return i.id === id; }));
+  });
+
+  // ---- Edit / create dialog ----
+  function openDialog(item) {
+    editingId = item ? item.id : null;
+    els.dialogTitle.textContent = item ? "Editar iniciativa" : "Nueva iniciativa";
+    document.getElementById("f-name").value = item ? item.name : "";
+    document.getElementById("f-area").value = item ? item.area : "";
+    document.getElementById("f-status").value = item ? item.status : "Backlog";
+    document.getElementById("f-category").value = item ? (item.category || CATEGORIES[0]) : CATEGORIES[0];
+    document.getElementById("f-priority").value = item ? item.priority : "Media";
+    document.getElementById("f-executing").value = item ? item.executing : "no";
+    document.getElementById("f-source").value = item ? (item.dataSource || "Estimado") : "Estimado";
+    document.getElementById("f-process").value = item ? (item.processBefore || "") : "";
+    document.getElementById("f-timeBefore").value = item && item.timeBeforeH != null ? item.timeBeforeH : "";
+    document.getElementById("f-peopleBefore").value = item && item.peopleBefore != null ? item.peopleBefore : "";
+    document.getElementById("f-freqBefore").value = item && item.freqBeforeMonth != null ? item.freqBeforeMonth : "";
+    document.getElementById("f-timeAfter").value = item && item.timeAfterH != null ? item.timeAfterH : "";
+    document.getElementById("f-peopleAfter").value = item && item.peopleAfter != null ? item.peopleAfter : "";
+    document.getElementById("f-freqAfter").value = item && item.freqAfterMonth != null ? item.freqAfterMonth : "";
+    document.getElementById("f-savingType").value = item ? (item.savingType || "Sin definir") : "Sin definir";
+    document.getElementById("f-metrics").value = item && item.metrics ? item.metrics.join(", ") : "";
+    els.dialog.showModal();
+    document.getElementById("f-name").focus();
+  }
+
+  document.getElementById("newInitiative").addEventListener("click", function () { openDialog(null); });
+  document.getElementById("closeDialog").addEventListener("click", function () { els.dialog.close(); });
+  document.getElementById("cancelForm").addEventListener("click", function () { els.dialog.close(); });
+
+  function numOrNull(v) { return v === "" ? null : Number(v); }
+
+  els.form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = document.getElementById("f-name").value.trim();
+    if (!name) return;
+    var metricsVal = document.getElementById("f-metrics").value
+      .split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+    var payload = {
+      name: name,
+      area: document.getElementById("f-area").value.trim(),
+      category: document.getElementById("f-category").value,
+      status: document.getElementById("f-status").value,
+      priority: document.getElementById("f-priority").value,
+      executing: document.getElementById("f-executing").value,
+      dataSource: document.getElementById("f-source").value,
+      processBefore: document.getElementById("f-process").value.trim(),
+      timeBeforeH: numOrNull(document.getElementById("f-timeBefore").value),
+      peopleBefore: numOrNull(document.getElementById("f-peopleBefore").value),
+      freqBeforeMonth: numOrNull(document.getElementById("f-freqBefore").value),
+      timeAfterH: numOrNull(document.getElementById("f-timeAfter").value),
+      peopleAfter: numOrNull(document.getElementById("f-peopleAfter").value),
+      freqAfterMonth: numOrNull(document.getElementById("f-freqAfter").value),
+      savingType: document.getElementById("f-savingType").value,
+      metrics: metricsVal,
+      updatedAt: new Date().toISOString()
+    };
+    if (editingId) {
+      items = items.map(function (i) { return i.id === editingId ? Object.assign({}, i, payload) : i; });
+    } else {
+      payload.id = uid();
+      payload.updates = [];
+      items = items.concat([payload]);
+    }
+    persist(items);
+    els.dialog.close();
+    renderAll();
+  });
+
+  document.getElementById("resetSample").addEventListener("click", function () {
+    items = seedData();
+    persist(items);
+    renderAll();
+  });
+  document.getElementById("clearAll").addEventListener("click", function () {
+    items = [];
+    persist(items);
+    renderAll();
+  });
+
+  // ---- Excel export / import (SheetJS) ----
+  function parseExecuting(v) {
+    v = String(v == null ? "" : v).trim().toLowerCase();
+    if (v.indexOf("pausad") !== -1) return "pausada";
+    if (v === "si" || v === "sí" || v === "s") return "si";
+    return "no";
+  }
+  function parseNum(v) {
+    if (v === "" || v == null) return null;
+    var n = Number(v);
+    return isNaN(n) ? null : n;
+  }
+  function oneOf(v, list, fallback) {
+    v = String(v == null ? "" : v).trim();
+    return list.indexOf(v) !== -1 ? v : fallback;
+  }
+
+  function buildWorkbook() {
+    var iniRows = items.map(function (i) {
+      var c = calc(i);
+      return {
+        "ID": i.id,
+        "Nombre": i.name,
+        "Área": i.area || "",
+        "Categoría": i.category || "",
+        "Estado": i.status,
+        "Entregado": i.status === "Entregada" ? "Sí" : "No",
+        "Prioridad": i.priority,
+        "Ejecución": i.executing === "si" ? "Sí" : (i.executing === "pausada" ? "Pausada" : "No"),
+        "Fuente del dato": i.dataSource || "",
+        "Proceso anterior": i.processBefore || "",
+        "Tiempo antes (h)": i.timeBeforeH,
+        "Personas antes": i.peopleBefore,
+        "Frecuencia antes (veces/mes)": i.freqBeforeMonth,
+        "Tiempo después (h)": i.timeAfterH,
+        "Personas después": i.peopleAfter,
+        "Frecuencia después (veces/mes)": i.freqAfterMonth,
+        "Tipo de cambio": i.savingType || "",
+        "% Reducción tiempo": c.pctTime != null ? Number(fmtNum(c.pctTime, 1)) : "",
+        "HH ahorradas/mes": c.hhSavedMonth != null ? Number(fmtNum(c.hhSavedMonth, 1)) : "",
+        "HH ahorradas/año": c.hhSavedYear != null ? Number(fmtNum(c.hhSavedYear, 1)) : "",
+        "Métricas": (i.metrics || []).join(", "),
+        "Actualizado": i.updatedAt ? fmtFullDate(i.updatedAt) : ""
+      };
+    });
+    var updRows = [];
+    items.forEach(function (i) {
+      (i.updates || []).forEach(function (u) {
+        updRows.push({ "ID iniciativa": i.id, "Iniciativa": i.name, "Fecha": fmtFullDate(u.date), "Nota": u.text });
+      });
+    });
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(iniRows), "Iniciativas");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(updRows), "Seguimiento");
+    return wb;
+  }
+
+  function exportToExcel() {
+    var stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(buildWorkbook(), "torre-de-control-" + stamp + ".xlsx");
+  }
+
+  function importFromExcel(file) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+        var wsIni = wb.Sheets["Iniciativas"] || wb.Sheets[wb.SheetNames[0]];
+        var wsUpd = wb.Sheets["Seguimiento"];
+        var rowsIni = wsIni ? XLSX.utils.sheet_to_json(wsIni, { defval: "" }) : [];
+        var rowsUpd = wsUpd ? XLSX.utils.sheet_to_json(wsUpd, { defval: "" }) : [];
+
+        var updatesByRef = {};
+        rowsUpd.forEach(function (r) {
+          var key = String(r["ID iniciativa"] || r["Iniciativa"] || "").trim();
+          if (!key) return;
+          var dateVal = r["Fecha"], iso;
+          if (dateVal instanceof Date) { iso = dateVal.toISOString(); }
+          else { var parsed = new Date(dateVal); iso = isNaN(parsed) ? new Date().toISOString() : parsed.toISOString(); }
+          (updatesByRef[key] = updatesByRef[key] || []).push({ id: uid(), date: iso, text: String(r["Nota"] || "").trim() });
+        });
+
+        var imported = rowsIni.filter(function (r) { return String(r["Nombre"] || "").trim(); }).map(function (r) {
+          var id = String(r["ID"] || "").trim() || uid();
+          var name = String(r["Nombre"] || "").trim();
+          return {
+            id: id, name: name,
+            area: String(r["Área"] || "").trim(),
+            category: String(r["Categoría"] || "").trim(),
+            status: oneOf(r["Estado"], STATUSES, "Backlog"),
+            priority: oneOf(r["Prioridad"], ["Alta", "Media", "Baja"], "Media"),
+            executing: parseExecuting(r["Ejecución"]),
+            dataSource: oneOf(r["Fuente del dato"], ["Medido", "Estimado"], "Estimado"),
+            processBefore: String(r["Proceso anterior"] || "").trim(),
+            timeBeforeH: parseNum(r["Tiempo antes (h)"]),
+            peopleBefore: parseNum(r["Personas antes"]),
+            freqBeforeMonth: parseNum(r["Frecuencia antes (veces/mes)"]),
+            timeAfterH: parseNum(r["Tiempo después (h)"]),
+            peopleAfter: parseNum(r["Personas después"]),
+            freqAfterMonth: parseNum(r["Frecuencia después (veces/mes)"]),
+            savingType: oneOf(r["Tipo de cambio"], ["Eliminado", "Reducido", "Automatizado", "Trasladado", "Discontinuado", "Sin definir"], "Sin definir"),
+            metrics: String(r["Métricas"] || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean),
+            updatedAt: new Date().toISOString(),
+            updates: updatesByRef[id] || updatesByRef[name] || []
+          };
+        });
+
+        if (!imported.length) {
+          alert("No se encontraron iniciativas válidas en el archivo. Verifica que tenga una hoja 'Iniciativas' con la columna 'Nombre'.");
+          return;
+        }
+        items = imported;
+        persist(items);
+        renderAll();
+      } catch (err) {
+        alert("No se pudo leer el archivo. Verifica que sea un .xlsx exportado desde este tablero.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  document.getElementById("exportExcel").addEventListener("click", exportToExcel);
+  document.getElementById("importExcel").addEventListener("click", function () {
+    document.getElementById("importFile").click();
+  });
+  document.getElementById("importFile").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (file) importFromExcel(file);
+    e.target.value = "";
+  });
+
+  // ---- Webhook settings dialog ----
+  var webhookDialog = document.getElementById("webhookDialog");
+  function readWebhookForm() {
+    return {
+      owner: document.getElementById("wh-owner").value.trim(),
+      repo: document.getElementById("wh-repo").value.trim(),
+      eventType: document.getElementById("wh-event").value.trim() || "torre-control-update",
+      token: document.getElementById("wh-token").value.trim(),
+      auto: document.getElementById("wh-auto").checked
+    };
+  }
+  document.getElementById("openWebhook").addEventListener("click", function () {
+    document.getElementById("wh-owner").value = webhookCfg.owner || "";
+    document.getElementById("wh-repo").value = webhookCfg.repo || "";
+    document.getElementById("wh-event").value = webhookCfg.eventType || "torre-control-update";
+    document.getElementById("wh-token").value = webhookCfg.token || "";
+    document.getElementById("wh-auto").checked = !!webhookCfg.auto;
+    document.getElementById("webhookStatus").textContent = "";
+    document.getElementById("webhookStatus").className = "webhook-status";
+    webhookDialog.showModal();
+  });
+  document.getElementById("closeWebhook").addEventListener("click", function () { webhookDialog.close(); });
+  document.getElementById("wh-save").addEventListener("click", function () {
+    webhookCfg = readWebhookForm();
+    saveWebhookConfig(webhookCfg);
+    webhookDialog.close();
+  });
+  document.getElementById("wh-send-now").addEventListener("click", function () {
+    webhookCfg = readWebhookForm();
+    saveWebhookConfig(webhookCfg);
+    sendWebhook(true);
+  });
+
+  if (state.isSample && !bannerDismissed()) { els.banner.hidden = false; } else { els.banner.hidden = true; }
+  document.getElementById("dismissBanner").addEventListener("click", function () {
+    els.banner.hidden = true;
+    dismissBannerFlag();
+  });
+
+  renderAll();
+})();
+</script>
